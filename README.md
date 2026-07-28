@@ -4,6 +4,14 @@ A **Nintendo Switch–style** top-down ocean adventure (Three.js diorama look) f
 
 Collect **12 clues** across the seas and find the **Rainbow Coral**.
 
+## Play online (iPad / phone / laptop)
+
+**https://akmonroe.github.io/secret-of-the-tidal-door/**
+
+Open that link in Safari on an iPad (touch controls work). Landscape is best.
+
+Repo: https://github.com/akmonroe/secret-of-the-tidal-door
+
 ## Stack
 
 - **Vite + TypeScript + Three.js** (stylized low-poly / toon materials)
