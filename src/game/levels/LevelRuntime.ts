@@ -1,0 +1,289 @@
+import * as THREE from "three";
+import type { Input } from "../core/input";
+import { Player } from "../entities3d/Player";
+import { Hazard } from "../entities3d/Hazard";
+import { MovingObstacle } from "../entities3d/MovingObstacle";
+import { getBiome } from "../world/biomes";
+import { type Blocker, circleHitsAny } from "../world/collision";
+import {
+  buildMazeFromRows,
+  cellToWorld,
+  CELL,
+  type MazeBuild,
+  resolveCollision,
+} from "../world/MazeBuilder";
+import { makeCluePedestal } from "../world/meshes";
+import type { LevelDef } from "./levelDefs";
+import { collectClue, getSave, unlockLevel } from "../progress/state";
+
+export type LevelCallbacks = {
+  onHud: (hp: number, maxHp: number, objective: string, clues: number) => void;
+  onHint: (text: string) => void;
+  onComplete: (clueId: string, clueText: string) => void;
+  /** Lost all HP — restart current level */
+  onDeath: () => void;
+  /** Fell off the world — full game over */
+  onFallDeath: () => void;
+};
+
+export class LevelRuntime {
+  scene = new THREE.Scene();
+  private maze!: MazeBuild;
+  private player!: Player;
+  private hazards: Hazard[] = [];
+  private movers: MovingObstacle[] = [];
+  private clueMesh: THREE.Group | null = null;
+  private def: LevelDef;
+  private callbacks: LevelCallbacks;
+  private won = false;
+  private dead = false;
+  private clock = 0;
+  private camOffset = new THREE.Vector3(0, 12, 10);
+  /** Static + dynamic blockers refreshed each frame for animals & player */
+  private liveBlockers: Blocker[] = [];
+  /** Water surface maps for cheap UV scroll (from makeWater userData). */
+  private waterMaps: THREE.Texture[] = [];
+
+  constructor(def: LevelDef, callbacks: LevelCallbacks) {
+    this.def = def;
+    this.callbacks = callbacks;
+  }
+
+  start(): void {
+    const biome = getBiome(this.def.biome);
+    this.scene.clear();
+    this.scene.background = new THREE.Color(biome.sky);
+    // Soft far fog — keeps horizons candy-colored, not milky/muddy
+    this.scene.fog = new THREE.Fog(biome.fog, 42, 110);
+
+    const hemi = new THREE.HemisphereLight(biome.hemiSky, biome.hemiGround, 1.15);
+    this.scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff8ee, 1.25);
+    sun.position.set(20, 30, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -45;
+    sun.shadow.camera.right = 45;
+    sun.shadow.camera.top = 45;
+    sun.shadow.camera.bottom = -45;
+    this.scene.add(sun);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.32));
+
+    this.maze = buildMazeFromRows(this.def.map, biome);
+    this.scene.add(this.maze.group);
+    this.waterMaps = [];
+    this.maze.group.traverse((obj) => {
+      if (obj.userData?.animateWater && obj.userData.waterMap) {
+        this.waterMaps.push(obj.userData.waterMap as THREE.Texture);
+      }
+    });
+
+    // Moving gates
+    this.movers = [];
+    for (const m of this.def.movers ?? []) {
+      const { x, z } = cellToWorld(m.c, m.r, this.maze.originX, this.maze.originZ);
+      const mover = new MovingObstacle(x, z, m);
+      this.movers.push(mover);
+      this.scene.add(mover.mesh);
+    }
+
+    this.refreshBlockers();
+
+    const save = getSave();
+    this.player = new Player(save.character, this.def.scuba || save.scuba);
+    this.player.spawnAt(this.maze.spawn.x, this.maze.spawn.z);
+    // Brief spawn shield while the first gate rhythm is readable
+    this.player.grantInvuln(1400);
+    this.scene.add(this.player.group);
+    this.player.attachToScene(this.scene);
+
+    this.hazards = [];
+    for (const h of this.def.hazards) {
+      const { x, z } = cellToWorld(h.c, h.r, this.maze.originX, this.maze.originZ);
+      // Open-cell search so animals never spawn vibrating inside walls/gates
+      const safe = this.findOpenSpawn(x, z, 0.65);
+      const hazard = new Hazard({
+        kind: h.kind,
+        x: safe.x,
+        z: safe.z,
+        speed: h.speed,
+        axis: h.axis,
+      });
+      hazard.setBlockers(this.liveBlockers);
+      this.hazards.push(hazard);
+      this.scene.add(hazard.group);
+    }
+
+    const clueAt =
+      this.maze.cluePos ??
+      (this.maze.housePos
+        ? this.maze.housePos.clone().add(new THREE.Vector3(0, 0, 3))
+        : this.maze.spawn.clone());
+    this.clueMesh = makeCluePedestal();
+    this.clueMesh.position.set(clueAt.x, 0, clueAt.z);
+    this.scene.add(this.clueMesh);
+
+    this.won = false;
+    this.dead = false;
+    this.clock = 0;
+    this.callbacks.onHud(
+      this.player.hp,
+      this.player.maxHp,
+      this.def.objective,
+      getSave().clues.length,
+    );
+    this.callbacks.onHint(this.def.hint);
+  }
+
+  private refreshBlockers(): void {
+    this.liveBlockers = [
+      ...this.maze.blockers,
+      ...this.movers.map((m) => m.getBlocker()),
+    ];
+  }
+
+  /** Resolve out of solids; if still overlapping, search nearby open spots. */
+  private findOpenSpawn(
+    x: number,
+    z: number,
+    radius: number,
+  ): { x: number; z: number } {
+    let p = resolveCollision(x, z, radius, this.liveBlockers);
+    if (!circleHitsAny(p.x, p.z, radius, this.liveBlockers)) return p;
+
+    for (let ring = 1; ring <= 8; ring++) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const tx = x + Math.cos(a) * ring * CELL * 0.55;
+        const tz = z + Math.sin(a) * ring * CELL * 0.55;
+        p = resolveCollision(tx, tz, radius, this.liveBlockers);
+        if (!circleHitsAny(p.x, p.z, radius, this.liveBlockers)) return p;
+      }
+    }
+    return p;
+  }
+
+  update(dt: number, input: Input, camera: THREE.PerspectiveCamera): void {
+    if (this.won) {
+      if (this.player) {
+        camera.position.lerp(
+          new THREE.Vector3(
+            this.player.position.x + this.camOffset.x,
+            this.camOffset.y,
+            this.player.position.z + this.camOffset.z,
+          ),
+          0.08,
+        );
+        camera.lookAt(this.player.position.x, 0.5, this.player.position.z);
+      }
+      return;
+    }
+
+    // Fall death: keep animating until below the world, then game over
+    if (this.dead && this.player?.falling) {
+      this.player.update(dt, input, this.maze);
+      camera.position.lerp(
+        new THREE.Vector3(
+          this.player.position.x + this.camOffset.x,
+          this.camOffset.y + 4,
+          this.player.position.z + this.camOffset.z,
+        ),
+        0.06,
+      );
+      camera.lookAt(
+        this.player.position.x,
+        this.player.group.position.y,
+        this.player.position.z,
+      );
+      if (this.player.hasFallenAway()) {
+        this.callbacks.onFallDeath();
+      }
+      return;
+    }
+
+    if (this.dead) return;
+
+    this.clock += dt;
+
+    // Subtle water UV drift — cheap, keeps toy water alive
+    for (const map of this.waterMaps) {
+      map.offset.x = (this.clock * 0.035) % 1;
+      map.offset.y = (this.clock * 0.022) % 1;
+    }
+
+    // Movers first so animals & player see current gates
+    for (const m of this.movers) m.update(dt);
+    this.refreshBlockers();
+
+    // Patch maze blockers for player collision to include movers
+    const staticBlockers = this.maze.blockers;
+    this.maze.blockers = this.liveBlockers;
+    this.player.update(dt, input, this.maze);
+    this.maze.blockers = staticBlockers;
+
+    // Edge of the world → fall and full game over
+    if (!this.player.falling && this.player.isOutsideWorld(this.maze)) {
+      this.player.startFall();
+      this.dead = true;
+      this.callbacks.onHint("You stepped off the edge of the world…");
+      return;
+    }
+
+    for (const h of this.hazards) {
+      h.setBlockers(this.liveBlockers);
+      h.update(dt, this.player.position.x, this.player.position.z);
+      if (h.collides(this.player.position.x, this.player.position.z, 0.4)) {
+        this.player.hit(h.group.position);
+      }
+    }
+
+    if (!this.player.isAlive()) {
+      this.dead = true;
+      this.callbacks.onDeath();
+      return;
+    }
+
+    if (this.clueMesh) {
+      const shell = this.clueMesh.userData.shell as THREE.Mesh | undefined;
+      if (shell) {
+        shell.position.y = 0.75 + Math.sin(this.clock * 3) * 0.12;
+        shell.rotation.y += dt * 1.5;
+      }
+      const dx = this.player.position.x - this.clueMesh.position.x;
+      const dz = this.player.position.z - this.clueMesh.position.z;
+      if (Math.hypot(dx, dz) < 1.4) {
+        this.complete();
+      }
+    }
+
+    const target = new THREE.Vector3(
+      this.player.position.x + this.camOffset.x,
+      this.camOffset.y,
+      this.player.position.z + this.camOffset.z,
+    );
+    camera.position.lerp(target, 1 - Math.exp(-5 * dt));
+    camera.lookAt(this.player.position.x, 0.5, this.player.position.z);
+
+    this.callbacks.onHud(
+      this.player.hp,
+      this.player.maxHp,
+      this.def.objective,
+      getSave().clues.length,
+    );
+  }
+
+  private complete(): void {
+    if (this.won) return;
+    this.won = true;
+    collectClue(this.def.clue);
+    unlockLevel(this.def.id + 1);
+    this.callbacks.onComplete(this.def.clue, this.def.clueText);
+  }
+
+  dispose(): void {
+    this.waterMaps = [];
+    this.scene.clear();
+  }
+}
