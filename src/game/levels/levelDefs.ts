@@ -34,18 +34,14 @@ export type LevelDef = {
 };
 
 /**
- * Difficulty design (kid-friendly, mildly hard, timing-sensitive):
- * - L1 teach: slow readable gates, sparse slow animals
- * - L2 halls: staggered crate rhythm + medium birds
- * - L3 reef: scuba + coral chokes, medium density
- * - L4 wreck: corridor gates on every major lane, densest but fair i-frames
- *
- * Mover rule: centers must sit on walkable corridors so they never permanently
- * seal spawn or clue tiles. Speeds ~1.6–2.4 with travel 4–6 give ~4–8s cycles.
+ * Wide maps + varied compass directions (kid-friendly complexity):
+ * - L1 EAST:  west beach → east stilt house
+ * - L2 WEST:  east halls → west secret chamber
+ * - L3 SOUTH: north reef edge → south BREATH clue
+ * - L4 NE:    south-west wreck deck → north-east captain cabin
  *
  * Coords are on the refined (2×) grid — place on OPEN cells only.
- * Chase is short-range + brief burst (see Hazard); patrol speeds stay under
- * player walk (~6.5) / swim (~4.2) so timing + dodge wins.
+ * doubleHazards / doubleMovers still applied at the bottom.
  */
 export const LEVELS: LevelDef[] = [
   {
@@ -57,35 +53,31 @@ export const LEVELS: LevelDef[] = [
       title: "Level 1 — Sunset Beach",
       body:
         "Locals whisper about the Rainbow Coral — found only by gathering clues from every sea.\n\n" +
-        "Your first clue waits at a secret house on stilts far across the water.\n" +
-        "Cross the beach, swim the rock maze, dodge sharks — and watch for drifting debris gates.",
+        "You wash up on the WEST shore. The stilt house waits far to the EAST across a wide rock maze.\n" +
+        "Head east, swim the channels, dodge sharks — and watch for drifting debris gates.",
     },
     map: refineMap(LEVEL1_MAP, 1),
     clue: "SUN",
     clueText: "Begin where light first touches sand.",
     scuba: false,
-    objective: "Reach the stilt house · Clue SUN",
-    hint: "Stay on the map — falling off the edge ends your adventure! Watch yellow gates.",
+    objective: "Head EAST to the stilt house · Clue SUN",
+    hint: "Travel EAST across the wide water maze. Falling off the edge ends your adventure!",
     hazards: [
-      // Water maze patrols — learnable speeds, not a swarm
-      { kind: "shark", c: 20, r: 28, speed: 1.75, axis: "x" },
-      { kind: "shark", c: 44, r: 20, speed: 1.7, axis: "z" },
-      { kind: "shark", c: 32, r: 14, speed: 1.85, axis: "x" },
-      { kind: "jelly", c: 12, r: 24, speed: 1.1, axis: "z" },
-      { kind: "jelly", c: 40, r: 26, speed: 1.15, axis: "x" },
-      { kind: "jelly", c: 28, r: 8, speed: 1.05, axis: "diag" },
-      { kind: "ray", c: 36, r: 22, speed: 1.5, axis: "x" },
-      { kind: "ray", c: 16, r: 16, speed: 1.45, axis: "z" },
+      { kind: "shark", c: 28, r: 63, speed: 1.76, axis: "x" },
+      { kind: "shark", c: 43, r: 61, speed: 1.81, axis: "z" },
+      { kind: "shark", c: 62, r: 67, speed: 1.87, axis: "x" },
+      { kind: "jelly", c: 52, r: 22, speed: 1.09, axis: "z" },
+      { kind: "jelly", c: 95, r: 71, speed: 1.13, axis: "x" },
+      { kind: "jelly", c: 98, r: 49, speed: 1.16, axis: "diag" },
+      { kind: "ray", c: 118, r: 57, speed: 1.52, axis: "x" },
+      { kind: "ray", c: 119, r: 30, speed: 1.57, axis: "z" },
     ],
     movers: [
-      // First lesson: open water just north of the beach (clear of spawn & rocks)
-      { c: 28, r: 42, axis: "x", travel: 5.5, speed: 1.65, phase: 0.15, color: 0x8b7355, width: 2.0, depth: 1.3 },
-      // Mid maze — staggered phases so two gates rarely close together
-      { c: 24, r: 28, axis: "x", travel: 5, speed: 1.85, phase: 0.0, color: 0x8b7355, width: 2.1, depth: 1.35 },
-      { c: 40, r: 22, axis: "z", travel: 4.5, speed: 1.7, phase: 0.4, color: 0x6b705c, width: 1.4, depth: 2.1 },
-      { c: 20, r: 14, axis: "x", travel: 4.5, speed: 2.0, phase: 0.65, color: 0x8b7355, width: 2.0, depth: 1.3 },
-      // Approach house — slower, readable before clue
-      { c: 32, r: 8, axis: "z", travel: 4, speed: 1.55, phase: 0.25, color: 0x5c6b4a, width: 1.35, depth: 2.2 },
+      { c: 36, r: 68, axis: "x", travel: 4.5, speed: 1.65, phase: 0.0, color: 0x8b7355, width: 2.0, depth: 1.3 },
+      { c: 38, r: 37, axis: "z", travel: 4.9, speed: 1.77, phase: 0.17, color: 0x6b705c, width: 1.35, depth: 2.0 },
+      { c: 73, r: 64, axis: "x", travel: 5.3, speed: 1.89, phase: 0.34, color: 0x5c4033, width: 2.0, depth: 1.3 },
+      { c: 93, r: 65, axis: "z", travel: 4.5, speed: 2.01, phase: 0.51, color: 0x8b5a2b, width: 1.35, depth: 2.0 },
+      { c: 96, r: 36, axis: "x", travel: 4.9, speed: 1.65, phase: 0.68, color: 0x4a6741, width: 2.0, depth: 1.3 },
     ],
   },
   {
@@ -96,36 +88,33 @@ export const LEVELS: LevelDef[] = [
     storyBefore: {
       title: "Level 2 — Birds of the Hidden Door",
       body:
-        "Inside the house, salt air and creaking wood fill long halls.\n\n" +
-        "Pelicans and gulls patrol the corridors — they turn at walls.\n" +
-        "Sliding crates block passages on a rhythm. Time your dash for the SALT clue.",
+        "Inside the house, salt air fills LONG halls stretching west.\n\n" +
+        "You enter from the EAST wing. The SALT clue hides in a chamber to the WEST.\n" +
+        "Pelicans and gulls patrol. Sliding crates block passages on a rhythm — time your dash.",
     },
     map: refineMap(LEVEL2_MAP, 2),
     clue: "SALT",
     clueText: "Cross the house that walks on water.",
     scuba: false,
-    objective: "Find the secret chamber · Clue SALT",
-    hint: "Wider halls! Birds may chase briefly — time crate gaps, then dash.",
+    objective: "Travel WEST through the halls · Clue SALT",
+    hint: "You start on the EAST side — keep heading WEST. Time crate gaps, then dash.",
     hazards: [
-      // Lower density near spawn (south); denser mid/north — mild bird speeds
-      { kind: "pelican", c: 20, r: 56, speed: 1.9, axis: "x" },
-      { kind: "pelican", c: 30, r: 50, speed: 1.85, axis: "z" },
-      { kind: "pelican", c: 38, r: 34, speed: 2.0, axis: "x" },
-      { kind: "pelican", c: 44, r: 24, speed: 1.9, axis: "z" },
-      { kind: "gull", c: 32, r: 60, speed: 2.35, axis: "x" },
-      { kind: "gull", c: 50, r: 42, speed: 2.45, axis: "z" },
-      { kind: "gull", c: 20, r: 30, speed: 2.3, axis: "z" },
-      { kind: "gull", c: 36, r: 18, speed: 2.4, axis: "x" },
-      { kind: "gull", c: 28, r: 10, speed: 2.35, axis: "diag" },
+      { kind: "pelican", c: 135, r: 73, speed: 1.8, axis: "x" },
+      { kind: "pelican", c: 120, r: 54, speed: 1.86, axis: "z" },
+      { kind: "pelican", c: 105, r: 47, speed: 1.92, axis: "x" },
+      { kind: "pelican", c: 90, r: 72, speed: 1.8, axis: "z" },
+      { kind: "gull", c: 75, r: 33, speed: 2.3, axis: "x" },
+      { kind: "gull", c: 60, r: 14, speed: 2.37, axis: "z" },
+      { kind: "gull", c: 45, r: 5, speed: 2.23, axis: "z" },
+      { kind: "gull", c: 30, r: 67, speed: 2.3, axis: "x" },
+      { kind: "gull", c: 15, r: 59, speed: 2.37, axis: "diag" },
     ],
     movers: [
-      // OPEN halls only (r32, r30, r23, r21, r17) — never wall rows
-      { c: 32, r: 64, axis: "x", travel: 5, speed: 1.75, phase: 0.0, color: 0x8b5a2b, width: 1.7, depth: 1.15, height: 1.2 },
-      { c: 24, r: 60, axis: "x", travel: 4.5, speed: 1.9, phase: 0.45, color: 0xa67c52, width: 1.7, depth: 1.15, height: 1.2 },
-      { c: 32, r: 46, axis: "x", travel: 6, speed: 2.0, phase: 0.2, color: 0x8b5a2b, width: 1.8, depth: 1.15, height: 1.2 },
-      { c: 36, r: 34, axis: "x", travel: 4.5, speed: 2.1, phase: 0.7, color: 0xa67c52, width: 1.7, depth: 1.15, height: 1.2 },
-      // Horizontal pinch on open mid-hall (was wall cell)
-      { c: 34, r: 42, axis: "x", travel: 4, speed: 1.85, phase: 0.35, color: 0x8b5a2b, width: 1.7, depth: 1.15, height: 1.2 },
+      { c: 128, r: 43, axis: "x", travel: 4.5, speed: 1.65, phase: 0.0, color: 0x8b5a2b, width: 1.7, depth: 1.15, height: 1.2 },
+      { c: 107, r: 3, axis: "z", travel: 4.9, speed: 1.77, phase: 0.17, color: 0xa67c52, width: 1.35, depth: 2.0, height: 1.2 },
+      { c: 86, r: 19, axis: "x", travel: 5.3, speed: 1.89, phase: 0.34, color: 0x8b5a2b, width: 1.8, depth: 1.15, height: 1.2 },
+      { c: 65, r: 26, axis: "z", travel: 4.5, speed: 2.01, phase: 0.51, color: 0xa67c52, width: 1.35, depth: 2.0, height: 1.2 },
+      { c: 44, r: 32, axis: "x", travel: 4.9, speed: 1.65, phase: 0.68, color: 0x8b5a2b, width: 1.7, depth: 1.15, height: 1.2 },
     ],
   },
   {
@@ -137,36 +126,34 @@ export const LEVELS: LevelDef[] = [
       title: "Level 3 — Scuba Under the Sea",
       body:
         "The Tidal Door opens onto racks of scuba gear!\n\n" +
-        "Coral mazes and drifting stone slabs force careful timing.\n" +
-        "Sea creatures patrol lanes and bounce off coral walls.",
+        "You drop in at the NORTH edge of a huge reef. The BREATH clue lies SOUTH through coral canyons.\n" +
+        "Stone slabs drift on a rhythm. Sea creatures patrol the lanes.",
     },
     map: refineMap(LEVEL3_MAP, 1),
     clue: "BREATH",
     clueText: "Wear the tank that drinks the deep.",
     scuba: true,
-    objective: "Scuba dive · reach Clue BREATH",
-    hint: "Sharks hunt nearby divers. Use wider coral lanes and gate timing.",
+    objective: "Dive SOUTH through the reef · Clue BREATH",
+    hint: "You start at the NORTH reef — keep swimming SOUTH. Use gate timing in the canyons.",
     hazards: [
-      { kind: "shark", c: 20, r: 40, speed: 1.9, axis: "x" },
-      { kind: "shark", c: 42, r: 30, speed: 1.85, axis: "z" },
-      { kind: "shark", c: 32, r: 20, speed: 2.0, axis: "x" },
-      { kind: "shark", c: 14, r: 14, speed: 1.8, axis: "z" },
-      { kind: "jelly", c: 28, r: 48, speed: 1.2, axis: "diag" },
-      { kind: "jelly", c: 52, r: 36, speed: 1.25, axis: "x" },
-      { kind: "jelly", c: 24, r: 24, speed: 1.15, axis: "z" },
-      { kind: "ray", c: 34, r: 42, speed: 1.65, axis: "z" },
-      { kind: "ray", c: 10, r: 26, speed: 1.6, axis: "x" },
-      { kind: "ray", c: 48, r: 20, speed: 1.7, axis: "z" },
+      { kind: "shark", c: 25, r: 28, speed: 1.76, axis: "x" },
+      { kind: "shark", c: 43, r: 28, speed: 1.81, axis: "z" },
+      { kind: "shark", c: 72, r: 9, speed: 1.87, axis: "x" },
+      { kind: "shark", c: 71, r: 27, speed: 1.76, axis: "z" },
+      { kind: "jelly", c: 49, r: 71, speed: 1.13, axis: "diag" },
+      { kind: "jelly", c: 113, r: 7, speed: 1.16, axis: "x" },
+      { kind: "jelly", c: 102, r: 37, speed: 1.09, axis: "z" },
+      { kind: "ray", c: 79, r: 82, speed: 1.57, axis: "z" },
+      { kind: "ray", c: 120, r: 48, speed: 1.62, axis: "x" },
+      { kind: "ray", c: 124, r: 66, speed: 1.52, axis: "z" },
     ],
     movers: [
-      // Open channels (not solid coral / rock cells)
-      { c: 36, r: 64, axis: "x", travel: 5, speed: 1.7, phase: 0.1, color: 0x4a6741, width: 1.9, depth: 1.25, height: 1.5 },
-      { c: 32, r: 46, axis: "x", travel: 5.5, speed: 1.85, phase: 0.4, color: 0x5c4033, width: 1.9, depth: 1.25, height: 1.55 },
-      { c: 14, r: 36, axis: "x", travel: 4, speed: 2.0, phase: 0.0, color: 0x4a6741, width: 1.8, depth: 1.25, height: 1.5 },
-      { c: 40, r: 22, axis: "z", travel: 3.5, speed: 1.9, phase: 0.55, color: 0x5c4033, width: 1.25, depth: 1.9, height: 1.55 },
-      { c: 28, r: 14, axis: "x", travel: 4.5, speed: 1.75, phase: 0.75, color: 0x6b4226, width: 1.9, depth: 1.25, height: 1.5 },
-      // Slow approach to clue chamber (r3 open water under C)
-      { c: 32, r: 6, axis: "x", travel: 4, speed: 1.6, phase: 0.3, color: 0x4a6741, width: 1.8, depth: 1.2, height: 1.45 },
+      { c: 35, r: 25, axis: "x", travel: 4.5, speed: 1.65, phase: 0.1, color: 0x4a6741, width: 1.9, depth: 1.25, height: 1.5 },
+      { c: 58, r: 22, axis: "z", travel: 4.9, speed: 1.77, phase: 0.17, color: 0x5c4033, width: 1.25, depth: 1.9, height: 1.55 },
+      { c: 45, r: 61, axis: "x", travel: 5.3, speed: 1.89, phase: 0.34, color: 0x4a6741, width: 1.9, depth: 1.25, height: 1.5 },
+      { c: 85, r: 33, axis: "z", travel: 4.5, speed: 2.01, phase: 0.51, color: 0x5c4033, width: 1.25, depth: 1.9, height: 1.55 },
+      { c: 124, r: 6, axis: "x", travel: 4.9, speed: 1.65, phase: 0.68, color: 0x6b4226, width: 1.9, depth: 1.25, height: 1.5 },
+      { c: 104, r: 53, axis: "z", travel: 5.3, speed: 1.77, phase: 0.85, color: 0x4a6741, width: 1.25, depth: 1.9, height: 1.5 },
     ],
   },
   {
@@ -178,38 +165,35 @@ export const LEVELS: LevelDef[] = [
       title: "Level 4 — Wreck of the Amber Gull",
       body:
         "A wooden ship rests on its side in the gloom — the Amber Gull.\n\n" +
-        "Sliding bulkheads and prowling creatures make every corridor a timing puzzle.\n" +
-        "Find the GOLD clue in the captain’s cabin.",
+        "You board at the SOUTH-WEST. The GOLD clue waits in the captain's cabin to the NORTH-EAST.\n" +
+        "Sliding bulkheads and prowling creatures make every deck a timing puzzle.",
     },
     map: refineMap(LEVEL4_MAP, 2),
     clue: "GOLD",
     clueText: "Past the coins the wreck still keeps.",
     scuba: true,
-    objective: "Explore the wreck · Clue GOLD",
-    hint: "Roomier decks. Hunters pursue close-up — bulkhead rhythm + side channels save you.",
+    objective: "Weave NORTH-EAST to the cabin · Clue GOLD",
+    hint: "Start SOUTH-WEST — work your way NORTH and EAST. Side channels save you from bulkheads.",
     hazards: [
-      // Corridor patrols — axis aligned with the open lanes they live in
-      { kind: "shark", c: 28, r: 66, speed: 1.9, axis: "x" },
-      { kind: "shark", c: 40, r: 46, speed: 1.95, axis: "x" },
-      { kind: "shark", c: 24, r: 26, speed: 2.0, axis: "x" },
-      { kind: "jelly", c: 36, r: 56, speed: 1.2, axis: "x" },
-      { kind: "jelly", c: 32, r: 36, speed: 1.15, axis: "x" },
-      { kind: "jelly", c: 44, r: 16, speed: 1.25, axis: "x" },
-      { kind: "ray", c: 20, r: 56, speed: 1.7, axis: "x" },
-      { kind: "ray", c: 48, r: 36, speed: 1.75, axis: "x" },
-      { kind: "ray", c: 32, r: 16, speed: 1.8, axis: "x" },
-      { kind: "ray", c: 36, r: 6, speed: 1.65, axis: "x" },
+      { kind: "shark", c: 20, r: 61, speed: 1.76, axis: "x" },
+      { kind: "shark", c: 43, r: 70, speed: 1.81, axis: "x" },
+      { kind: "shark", c: 14, r: 5, speed: 1.87, axis: "x" },
+      { kind: "jelly", c: 75, r: 76, speed: 1.09, axis: "x" },
+      { kind: "jelly", c: 42, r: 5, speed: 1.13, axis: "x" },
+      { kind: "jelly", c: 93, r: 61, speed: 1.16, axis: "x" },
+      { kind: "ray", c: 74, r: 11, speed: 1.52, axis: "x" },
+      { kind: "ray", c: 133, r: 79, speed: 1.57, axis: "x" },
+      { kind: "ray", c: 138, r: 65, speed: 1.62, axis: "x" },
+      { kind: "ray", c: 119, r: 9, speed: 1.52, axis: "x" },
     ],
     movers: [
-      // All on OPEN horizontal corridors (r33,28,23,18,13,8,3) — never bulkhead/wall rows
-      { c: 32, r: 66, axis: "x", travel: 5.5, speed: 1.85, phase: 0.0, color: 0x5c4033, width: 2.2, depth: 1.15, height: 1.7 },
-      { c: 40, r: 56, axis: "x", travel: 5, speed: 2.0, phase: 0.35, color: 0x6b4226, width: 2.1, depth: 1.15, height: 1.7 },
-      { c: 24, r: 46, axis: "x", travel: 5.5, speed: 2.05, phase: 0.15, color: 0x5c4033, width: 2.2, depth: 1.15, height: 1.75 },
-      { c: 44, r: 36, axis: "x", travel: 4.5, speed: 2.15, phase: 0.55, color: 0x6b4226, width: 2.0, depth: 1.15, height: 1.7 },
-      { c: 28, r: 26, axis: "x", travel: 5, speed: 2.1, phase: 0.75, color: 0x5c4033, width: 2.1, depth: 1.15, height: 1.7 },
-      { c: 36, r: 16, axis: "x", travel: 5.5, speed: 2.2, phase: 0.25, color: 0x8b5a2b, width: 2.2, depth: 1.15, height: 1.65 },
-      // Pre-clue corridor — slower so the GOLD room feels earned, not sniped
-      { c: 32, r: 6, axis: "x", travel: 4.5, speed: 1.7, phase: 0.5, color: 0x5c4033, width: 2.0, depth: 1.15, height: 1.6 },
+      { c: 19, r: 53, axis: "x", travel: 4.5, speed: 1.65, phase: 0.0, color: 0x5c4033, width: 2.2, depth: 1.15, height: 1.7 },
+      { c: 18, r: 23, axis: "z", travel: 4.9, speed: 1.77, phase: 0.17, color: 0x6b4226, width: 1.35, depth: 2.0, height: 1.7 },
+      { c: 42, r: 34, axis: "x", travel: 5.3, speed: 1.89, phase: 0.34, color: 0x5c4033, width: 2.2, depth: 1.15, height: 1.75 },
+      { c: 88, r: 78, axis: "z", travel: 4.5, speed: 2.01, phase: 0.51, color: 0x6b4226, width: 1.35, depth: 2.0, height: 1.7 },
+      { c: 116, r: 95, axis: "x", travel: 4.9, speed: 1.65, phase: 0.68, color: 0x5c4033, width: 2.1, depth: 1.15, height: 1.7 },
+      { c: 127, r: 86, axis: "z", travel: 5.3, speed: 1.77, phase: 0.85, color: 0x8b5a2b, width: 1.35, depth: 2.0, height: 1.65 },
+      { c: 95, r: 12, axis: "x", travel: 4.5, speed: 1.89, phase: 0.02, color: 0x5c4033, width: 2.0, depth: 1.15, height: 1.6 },
     ],
   },
 ];

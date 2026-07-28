@@ -53,21 +53,21 @@ export class LevelRuntime {
     const biome = getBiome(this.def.biome);
     this.scene.clear();
     this.scene.background = new THREE.Color(biome.sky);
-    // Soft far fog — keeps horizons candy-colored, not milky/muddy
-    this.scene.fog = new THREE.Fog(biome.fog, 42, 110);
+    // Soft far fog — wider maps need a longer draw distance
+    this.scene.fog = new THREE.Fog(biome.fog, 55, 160);
 
     const hemi = new THREE.HemisphereLight(biome.hemiSky, biome.hemiGround, 1.15);
     this.scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xfff8ee, 1.25);
-    sun.position.set(20, 30, 10);
+    sun.position.set(28, 36, 16);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 80;
-    sun.shadow.camera.left = -45;
-    sun.shadow.camera.right = 45;
-    sun.shadow.camera.top = 45;
-    sun.shadow.camera.bottom = -45;
+    sun.shadow.camera.far = 120;
+    sun.shadow.camera.left = -70;
+    sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 70;
+    sun.shadow.camera.bottom = -70;
     this.scene.add(sun);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.32));
 

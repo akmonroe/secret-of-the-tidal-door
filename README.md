@@ -43,6 +43,13 @@ npm run dev
 
 ## Current build (4 of 12 seas)
 
+Maps are **much wider** with varied start directions:
+- L1 → travel **EAST** (west beach → house)
+- L2 → travel **WEST** (east halls → secret chamber)
+- L3 → travel **SOUTH** (north reef → BREATH)
+- L4 → travel **NORTH-EAST** (SW wreck → cabin)
+
+
 | Level | Region | Clue |
 |-------|--------|------|
 | 1 | Sunset Beach (expanded maze) | SUN |
