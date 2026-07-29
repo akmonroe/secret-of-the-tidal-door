@@ -13,6 +13,13 @@ import {
   resolveCollision,
 } from "../world/MazeBuilder";
 import { makeCluePedestal } from "../world/meshes";
+import {
+  buildZones,
+  type LiveZone,
+  updateZoneVisuals,
+  ventIsHot,
+  zoneContains,
+} from "../world/zones";
 import type { LevelDef } from "./levelDefs";
 import { collectClue, getSave, unlockLevel } from "../progress/state";
 
@@ -32,6 +39,7 @@ export class LevelRuntime {
   private player!: Player;
   private hazards: Hazard[] = [];
   private movers: MovingObstacle[] = [];
+  private zones: LiveZone[] = [];
   private clueMesh: THREE.Group | null = null;
   private def: LevelDef;
   private callbacks: LevelCallbacks;
@@ -89,6 +97,10 @@ export class LevelRuntime {
       this.scene.add(mover.mesh);
     }
 
+    // Currents + thermal vents
+    this.zones = buildZones(this.def.zones, this.maze.originX, this.maze.originZ);
+    for (const z of this.zones) this.scene.add(z.mesh);
+
     this.refreshBlockers();
 
     const save = getSave();
@@ -110,6 +122,9 @@ export class LevelRuntime {
         z: safe.z,
         speed: h.speed,
         axis: h.axis,
+        lethal: h.lethal,
+        hunts: h.hunts,
+        chaseRange: h.chaseRange,
       });
       hazard.setBlockers(this.liveBlockers);
       this.hazards.push(hazard);
@@ -216,6 +231,17 @@ export class LevelRuntime {
     // Movers first so animals & player see current gates
     for (const m of this.movers) m.update(dt);
     this.refreshBlockers();
+    updateZoneVisuals(this.zones, this.clock);
+
+    // Currents shove the traveler before movement resolves
+    for (const z of this.zones) {
+      if (
+        z.kind === "current" &&
+        zoneContains(z, this.player.position.x, this.player.position.z)
+      ) {
+        this.player.applyForce(z.forceX, z.forceZ, dt);
+      }
+    }
 
     // Patch maze blockers for player collision to include movers
     const staticBlockers = this.maze.blockers;
@@ -231,11 +257,35 @@ export class LevelRuntime {
       return;
     }
 
+    // Thermal vents — damage when the plume is hot (glow bright)
+    for (const z of this.zones) {
+      if (
+        z.kind === "vent" &&
+        ventIsHot(z, this.clock) &&
+        zoneContains(z, this.player.position.x, this.player.position.z)
+      ) {
+        this.player.hit(
+          new THREE.Vector3(
+            (z.minX + z.maxX) / 2,
+            0,
+            (z.minZ + z.maxZ) / 2,
+          ),
+          { damage: z.damage, invuln: 0.9 },
+        );
+      }
+    }
+
     for (const h of this.hazards) {
       h.setBlockers(this.liveBlockers);
       h.update(dt, this.player.position.x, this.player.position.z);
       if (h.collides(this.player.position.x, this.player.position.z, 0.4)) {
-        this.player.hit(h.group.position);
+        this.player.hit(h.group.position, {
+          lethal: h.lethal,
+          damage: h.lethal ? 99 : 1,
+        });
+        if (h.lethal) {
+          this.callbacks.onHint("A deep-sea hunter got you!");
+        }
       }
     }
 

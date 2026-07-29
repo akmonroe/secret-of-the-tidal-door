@@ -48,6 +48,8 @@ export class Player {
   private sceneRef: THREE.Object3D | null = null;
   private fallVy = 0;
   private fallSpin = 0;
+  /** Brief red flash after damage (vents / animals) for kid-readable feedback */
+  private hitFlashUntil = 0;
 
   constructor(character: CharacterId, scuba: boolean) {
     this.scuba = scuba;
@@ -69,18 +71,39 @@ export class Player {
     this.invulnUntil = Math.max(this.invulnUntil, this.time + ms / 1000);
   }
 
-  hit(from: THREE.Vector3): void {
+  /**
+   * Take damage. Lethal hits (boss monsters) drop HP to 0 in one strike.
+   * Vents/animals use amount=1 with generous i-frames for kids.
+   */
+  hit(
+    from: THREE.Vector3,
+    opts?: { damage?: number; lethal?: boolean; invuln?: number },
+  ): void {
     if (this.time < this.invulnUntil) return;
-    this.hp = Math.max(0, this.hp - 1);
+    if (opts?.lethal) {
+      this.hp = 0;
+    } else {
+      const dmg = opts?.damage ?? 1;
+      this.hp = Math.max(0, this.hp - dmg);
+    }
     // Generous i-frames so denser patrols don't chain-kill kids mid-dodge
-    this.invulnUntil = this.time + 1.4;
-    this.stunnedUntil = this.time + 0.18;
+    const iframes = opts?.invuln ?? (opts?.lethal ? 0.5 : 1.4);
+    this.invulnUntil = this.time + iframes;
+    this.stunnedUntil = this.time + (opts?.lethal ? 0.35 : 0.18);
+    // Solid red hit pop (blink alone is easy to miss mid-swim)
+    this.hitFlashUntil = this.time + (opts?.lethal ? 0.45 : 0.28);
     const dir = this.position.clone().sub(from).setY(0);
     if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1);
     // Soft knockback — enough to leave the hit volume, not pin into walls
-    dir.normalize().multiplyScalar(7.5);
+    dir.normalize().multiplyScalar(opts?.lethal ? 10 : 7.5);
     this.velocity.x = dir.x;
     this.velocity.z = dir.z;
+  }
+
+  /** External velocity shove (currents). */
+  applyForce(fx: number, fz: number, dt: number): void {
+    this.velocity.x += fx * dt;
+    this.velocity.z += fz * dt;
   }
 
   canDodge(): boolean {
@@ -256,12 +279,26 @@ export class Player {
     const shadowMat = shadow.material as THREE.MeshBasicMaterial;
     shadowMat.opacity = THREE.MathUtils.lerp(0.28, 0.12, this.swimBlend);
 
-    // Invuln blink
+    // Invuln blink + hit red flash (vent burns / animal bumps)
+    const flashing = this.time < this.hitFlashUntil;
     const matVisible =
       this.time < this.invulnUntil ? Math.sin(this.time * 30) > 0 : true;
     this.group.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh && o !== shadow) {
-        (o as THREE.Mesh).visible = matVisible;
+      if (!(o as THREE.Mesh).isMesh || o === shadow) return;
+      const mesh = o as THREE.Mesh;
+      mesh.visible = matVisible;
+      const m = mesh.material as THREE.MeshToonMaterial | undefined;
+      if (!m || !m.isMeshToonMaterial || !m.emissive) return;
+      if (m.userData.baseHitEmissive === undefined) {
+        m.userData.baseHitEmissive = m.emissive.getHex();
+        m.userData.baseHitEmissiveIntensity = m.emissiveIntensity ?? 0;
+      }
+      if (flashing) {
+        m.emissive.setHex(0xff2200);
+        m.emissiveIntensity = 0.85 + Math.sin(this.time * 40) * 0.2;
+      } else {
+        m.emissive.setHex(m.userData.baseHitEmissive as number);
+        m.emissiveIntensity = m.userData.baseHitEmissiveIntensity as number;
       }
     });
   }

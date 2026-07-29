@@ -661,6 +661,166 @@ export function makeGull(): THREE.Group {
   return g;
 }
 
+/** Barrel-bodied sea lion for kelp lanes */
+export function makeSeaLion(): THREE.Group {
+  // Chocolate toy seal — warmer than ray/shark slate so it pops on kelp green
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 7), toon(0x6a5040));
+  body.scale.set(0.85, 0.7, 1.45);
+  body.position.y = 0.35;
+  body.castShadow = true;
+  g.add(body);
+  // Cream belly plate for high-cam silhouette
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), toon(0xe8d8c0));
+  belly.scale.set(0.75, 0.45, 1.15);
+  belly.position.set(0, 0.22, 0.05);
+  g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), toon(0x7a6050));
+  head.position.set(0, 0.42, 0.55);
+  g.add(head);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), toon(0x3a2a24));
+  nose.rotation.x = Math.PI / 2;
+  nose.position.set(0, 0.38, 0.78);
+  g.add(nose);
+  // Whisker dots — tiny face read from high cam
+  for (const sx of [-1, 1] as const) {
+    const whisk = new THREE.Mesh(new THREE.SphereGeometry(0.025, 4, 3), toon(0xf0e8d8));
+    whisk.position.set(sx * 0.12, 0.36, 0.72);
+    g.add(whisk);
+  }
+  for (const sx of [-1, 1] as const) {
+    const flipper = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.07, 0.24), toon(0x4a3830));
+    flipper.position.set(sx * 0.38, 0.22, 0.05);
+    flipper.rotation.z = sx * 0.4;
+    g.add(flipper);
+  }
+  for (const sx of [-1, 1] as const) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 5, 4), toon(0x111111));
+    eye.position.set(sx * 0.1, 0.48, 0.68);
+    g.add(eye);
+  }
+  addBlobShadow(g, 0.55);
+  return g;
+}
+
+/** Deep anglerfish — lethal boss silhouette with glowing lure (toy, not horror) */
+export function makeAngler(): THREE.Group {
+  const g = new THREE.Group();
+  // Plum body — brighter than pure night so it reads on vent/storm floors
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.48, 10, 8), toon(0x5a3878));
+  body.scale.set(1.1, 0.85, 1.25);
+  body.position.y = 0.4;
+  body.castShadow = true;
+  g.add(body);
+  // Pale underbelly for top-down outline
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), toon(0xc8a0e0));
+  belly.scale.set(0.95, 0.4, 1.0);
+  belly.position.set(0, 0.22, 0.05);
+  g.add(belly);
+  // Huge jaw — dark but not black void
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.35), toon(0x3a2850));
+  jaw.position.set(0, 0.22, 0.45);
+  g.add(jaw);
+  // Toy teeth row (readable danger, not gore)
+  for (let i = -2; i <= 2; i++) {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 4), toon(0xfff8ee));
+    tooth.position.set(i * 0.09, 0.32, 0.58);
+    tooth.rotation.x = Math.PI;
+    g.add(tooth);
+  }
+  // Lure stalk + glow bulb
+  const stalk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.55, 5),
+    toon(0x6a5090),
+  );
+  stalk.position.set(0, 0.85, 0.25);
+  stalk.rotation.x = 0.4;
+  g.add(stalk);
+  const lure = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 8, 6),
+    new THREE.MeshToonMaterial({
+      color: 0xfff0a0,
+      emissive: 0xffcc33,
+      emissiveIntensity: 1.4,
+    }),
+  );
+  lure.position.set(0, 1.05, 0.48);
+  g.add(lure);
+  g.userData.lure = lure;
+  // Angry red eyes — keep glow via Hazard preserve-emissive
+  for (const sx of [-1, 1] as const) {
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 6, 5),
+      new THREE.MeshToonMaterial({
+        color: 0xff5555,
+        emissive: 0xcc1122,
+        emissiveIntensity: 0.7,
+      }),
+    );
+    eye.position.set(sx * 0.18, 0.5, 0.52);
+    g.add(eye);
+  }
+  // Fins — wider for high-cam width read
+  for (const sx of [-1, 1] as const) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.3), toon(0x4a3070));
+    fin.position.set(sx * 0.42, 0.35, -0.1);
+    g.add(fin);
+  }
+  addBlobShadow(g, 0.65);
+  return g;
+}
+
+/** Fast silver marlin — lethal spear fish for current raceway / late seas */
+export function makeMarlin(): THREE.Group {
+  const g = new THREE.Group();
+  // Steel-blue body — brighter than shark slate for raceway contrast
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.9, 7), toon(0x70b0d0));
+  body.rotation.x = Math.PI / 2;
+  body.position.y = 0.4;
+  body.castShadow = true;
+  g.add(body);
+  // Spear bill (+Z) — high-contrast white tip
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.9, 5), toon(0xf0f8ff));
+  bill.rotation.x = Math.PI / 2;
+  bill.position.set(0, 0.4, 1.18);
+  g.add(bill);
+  // Dorsal sail — deep teal for silhouette
+  const sail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.75), toon(0x2a6088));
+  sail.position.set(0, 0.78, 0.05);
+  g.add(sail);
+  // Silver flash stripe
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.09, 1.25),
+    new THREE.MeshToonMaterial({
+      color: 0xf0f8ff,
+      emissive: 0xb0e0ff,
+      emissiveIntensity: 0.5,
+    }),
+  );
+  stripe.position.set(0, 0.35, 0.1);
+  g.add(stripe);
+  // Tail
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 5), toon(0x3a7090));
+  tail.rotation.x = -Math.PI / 2;
+  tail.position.set(0, 0.4, -1.0);
+  g.add(tail);
+  // RED eyes (matches level copy "RED-eyed marlin")
+  for (const sx of [-1, 1] as const) {
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 5, 4),
+      new THREE.MeshToonMaterial({
+        color: 0xff3333,
+        emissive: 0xcc0000,
+        emissiveIntensity: 0.65,
+      }),
+    );
+    eye.position.set(sx * 0.11, 0.48, 0.55);
+    g.add(eye);
+  }
+  addBlobShadow(g, 0.7);
+  return g;
+}
+
 function addBlobShadow(g: THREE.Group, r: number): void {
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(r, 12),

@@ -133,11 +133,10 @@ export class GameApp {
       this.ui.showStory(next.storyBefore.title, next.storyBefore.body);
     } else {
       this.ui.showStory(
-        "More seas await…",
-        `You hold ${this.lastClueId}: “${this.lastClueText}”\n\n` +
-          `Levels 1–${totalLevelsBuilt()} are playable now. ` +
-          "Kelp forests, ice, vents, and the Rainbow Coral lagoon are still being charted.\n\n" +
-          "Return to the menu to play again!",
+        "Rainbow Coral Found!",
+        `You gathered every clue — including ${this.lastClueId}: “${this.lastClueText}”\n\n` +
+          "All twelve seas are charted. The Rainbow Coral shines for you!\n\n" +
+          "Return to the menu to explore the oceans again.",
       );
       this.pendingLevelId = -1;
       this.mode = "story";

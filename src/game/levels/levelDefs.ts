@@ -1,11 +1,13 @@
 import type { ClueId } from "../progress/state";
 import type { HazardKind } from "../entities3d/Hazard";
 import type { MovingObstacleDef } from "../entities3d/MovingObstacle";
+import type { ZoneDef } from "../world/zones";
 import { LEVEL1_MAP } from "./level1Map";
 import { LEVEL2_MAP } from "./level2Map";
 import { LEVEL3_MAP } from "./level3Map";
 import { LEVEL4_MAP } from "./level4Map";
 import { refineMap } from "./mapRefine";
+import { LEVELS_5_TO_12 } from "./levels5to12";
 
 export type HazardSpawn = {
   kind: HazardKind;
@@ -14,6 +16,10 @@ export type HazardSpawn = {
   /** World units per second */
   speed?: number;
   axis?: "x" | "z" | "diag";
+  /** One-hit defeat (late-game hunters) */
+  lethal?: boolean;
+  hunts?: boolean;
+  chaseRange?: number;
 };
 
 export type LevelDef = {
@@ -29,6 +35,8 @@ export type LevelDef = {
   hazards: HazardSpawn[];
   /** Sliding gates — timing challenges (place on OPEN cells, not walls) */
   movers?: MovingObstacleDef[];
+  /** Currents and thermal vents */
+  zones?: ZoneDef[];
   objective: string;
   hint: string;
 };
@@ -224,6 +232,9 @@ function doubleMovers(list: MovingObstacleDef[] | undefined): MovingObstacleDef[
   }));
   return [...list, ...extra];
 }
+
+// Append seas 5–12 (growing maps, currents, vents, lethal hunters)
+LEVELS.push(...LEVELS_5_TO_12);
 
 // Apply double density to all levels
 for (const level of LEVELS) {

@@ -41,24 +41,28 @@ npm run dev
 | Space / Shift | Dodge jump |
 | Touch | Left drag = stick · Right **JUMP DODGE** |
 
-## Current build (4 of 12 seas)
+## Current build (12 of 12 seas)
 
-Maps are **much wider** with varied start directions:
-- L1 → travel **EAST** (west beach → house)
-- L2 → travel **WEST** (east halls → secret chamber)
-- L3 → travel **SOUTH** (north reef → BREATH)
-- L4 → travel **NORTH-EAST** (SW wreck → cabin)
+Maps grow larger each level. Start direction changes so kids learn the compass:
 
+| Level | Region | Go | Clue | Specials |
+|-------|--------|-----|------|----------|
+| 1 | Sunset Beach | EAST | SUN | sharks, gates |
+| 2 | Stilt House Aviary | WEST | SALT | birds, crates |
+| 3 | First Descent | SOUTH | BREATH | scuba |
+| 4 | Wreck of the Amber Gull | NE | GOLD | bulkheads |
+| 5 | Emerald Kelp Forest | EAST | GREEN | currents, sea lions |
+| 6 | Ice Shelf Labyrinth | WEST | WHITE | currents, ice gates |
+| 7 | Midnight Vent Gardens | SOUTH | BLACK | **thermal vents** |
+| 8 | Silver Current Raceway | NORTH | SILVER | strong currents, **lethal marlin** |
+| 9 | Coral Stair City | WEST | PURPLE | vents + **lethal angler** |
+| 10 | Storm-Churn Shoals | SE | STORM | waves, vents, marlins |
+| 11 | Mirror Grotto | NORTH | MIRROR | false mirror path, anglers |
+| 12 | Eye of the Lagoon | NE spiral | RAINBOW | finale guardians |
 
-| Level | Region | Clue |
-|-------|--------|------|
-| 1 | Sunset Beach (expanded maze) | SUN |
-| 2 | Stilt House Aviary (corridor maze + birds) | SALT |
-| 3 | First Descent (scuba reef maze) | BREATH |
-| 4 | Wreck of the Amber Gull | GOLD |
-| 5–12 | Storyboarded — longer biomes next | … → Rainbow Coral |
+**Danger key:** blue arrows = currents · orange plumes = vents (pulse — cross when dim) · marlin/angler = **one-hit** in late seas.
 
-Progress auto-continues after each clue. Maps will keep growing for longer play.
+Progress auto-continues after each clue.
 
 ## Build / deploy
 

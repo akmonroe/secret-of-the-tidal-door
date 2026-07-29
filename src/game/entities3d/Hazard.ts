@@ -1,9 +1,12 @@
 import * as THREE from "three";
 import {
+  makeAngler,
   makeGull,
   makeJelly,
+  makeMarlin,
   makePelican,
   makeRay,
+  makeSeaLion,
   makeShark,
 } from "../world/meshes";
 import {
@@ -12,7 +15,15 @@ import {
   resolveCircle,
 } from "../world/collision";
 
-export type HazardKind = "shark" | "jelly" | "ray" | "pelican" | "gull";
+export type HazardKind =
+  | "shark"
+  | "jelly"
+  | "ray"
+  | "pelican"
+  | "gull"
+  | "sealion"
+  | "angler"
+  | "marlin";
 
 export type HazardOptions = {
   kind: HazardKind;
@@ -24,6 +35,8 @@ export type HazardOptions = {
   hunts?: boolean;
   /** Distance at which hunting starts */
   chaseRange?: number;
+  /** One-hit defeat (late levels only) */
+  lethal?: boolean;
 };
 
 /**
@@ -37,6 +50,8 @@ export class Hazard {
   group: THREE.Group;
   kind: HazardKind;
   radius: number;
+  /** One contact = full defeat (late-game bosses) */
+  lethal: boolean;
   private vx = 0;
   private vz = 0;
   private speed: number;
@@ -64,25 +79,43 @@ export class Hazard {
   constructor(opts: HazardOptions) {
     const { kind, x, z } = opts;
     this.kind = kind;
-    this.patrolSpeed =
-      opts.speed ?? (kind === "gull" ? 2.35 : kind === "jelly" ? 1.15 : 1.9);
+    this.lethal = opts.lethal ?? (kind === "angler" || kind === "marlin");
+    const defaultSpeed =
+      kind === "gull"
+        ? 2.35
+        : kind === "jelly"
+          ? 1.15
+          : kind === "marlin"
+            ? 2.55
+            : kind === "angler"
+              ? 1.55
+              : kind === "sealion"
+                ? 2.15
+                : 1.9;
+    this.patrolSpeed = opts.speed ?? defaultSpeed;
     this.speed = this.patrolSpeed;
     this.t = Math.random() * Math.PI * 2;
     this.homeX = x;
     this.homeZ = z;
     // Stay near spawn corridor so wide maps don't empty of patrols
-    this.leash = 7 + Math.random() * 4;
+    this.leash =
+      kind === "marlin" || kind === "angler"
+        ? 10 + Math.random() * 5
+        : 7 + Math.random() * 4;
 
-    // Who hunts: sharks & birds yes; rays mild; jellies no
+    // Who hunts: predators yes; jellies no
     if (opts.hunts !== undefined) this.hunts = opts.hunts;
     else
       this.hunts =
         kind === "shark" ||
         kind === "pelican" ||
         kind === "gull" ||
-        kind === "ray";
+        kind === "ray" ||
+        kind === "sealion" ||
+        kind === "angler" ||
+        kind === "marlin";
 
-    // Mild chase radii (world units, CELL=1) — timing/dodge, not long pursuits
+    // Mild chase radii (world units, CELL=1) — bosses a bit farther
     this.chaseRange =
       opts.chaseRange ??
       (kind === "gull"
@@ -93,7 +126,13 @@ export class Hazard {
             ? 3.6
             : kind === "ray"
               ? 2.6
-              : 0);
+              : kind === "sealion"
+                ? 3.8
+                : kind === "marlin"
+                  ? 5.2
+                  : kind === "angler"
+                    ? 4.6
+                    : 0);
 
     if (kind === "jelly") {
       this.mode = "drift";
@@ -101,7 +140,16 @@ export class Hazard {
     } else if (kind === "pelican" || kind === "gull") this.mode = "fly";
     else this.mode = "swim";
 
-    this.radius = kind === "gull" ? 0.4 : kind === "jelly" ? 0.42 : 0.5;
+    this.radius =
+      kind === "gull"
+        ? 0.4
+        : kind === "jelly"
+          ? 0.42
+          : kind === "marlin"
+            ? 0.58
+            : kind === "angler"
+              ? 0.55
+              : 0.5;
     this.baseY = this.mode === "fly" ? 0.85 : this.mode === "drift" ? 0.22 : 0.05;
 
     this.pickNewDirection(opts.axis);
@@ -119,10 +167,19 @@ export class Hazard {
       case "gull":
         this.group = makeGull();
         break;
+      case "sealion":
+        this.group = makeSeaLion();
+        break;
+      case "angler":
+        this.group = makeAngler();
+        break;
+      case "marlin":
+        this.group = makeMarlin();
+        break;
       default:
         this.group = makeJelly();
     }
-    this.group.scale.setScalar(0.85);
+    this.group.scale.setScalar(kind === "marlin" || kind === "angler" ? 1.05 : 0.85);
     this.group.position.set(x, this.baseY, z);
     this.lastX = x;
     this.lastZ = z;
@@ -195,18 +252,30 @@ export class Hazard {
 
       if (canSee) {
         if (this.chaseBurst <= 0 && !wasChasing) {
-          // Fresh brief burst — rays shortest, sharks a bit longer
+          // Fresh brief burst — rays shortest; bosses hold longer
           this.chaseBurst =
             this.kind === "ray"
               ? 0.65 + Math.random() * 0.35
               : this.kind === "gull"
                 ? 0.85 + Math.random() * 0.45
-                : 0.95 + Math.random() * 0.5;
+                : this.kind === "marlin"
+                  ? 1.35 + Math.random() * 0.55
+                  : this.kind === "angler"
+                    ? 1.2 + Math.random() * 0.5
+                    : 0.95 + Math.random() * 0.5;
         }
         if (this.chaseBurst > 0) {
           chasing = true;
           const mult =
-            this.kind === "gull" ? 1.1 : this.kind === "ray" ? 1.04 : 1.08;
+            this.kind === "gull"
+              ? 1.1
+              : this.kind === "ray"
+                ? 1.04
+                : this.kind === "marlin"
+                  ? 1.18
+                  : this.kind === "angler"
+                    ? 1.12
+                    : 1.08;
           const chaseSp = this.patrolSpeed * mult;
           this.vx += (dx / dist) * chaseSp * 2.2 * dt;
           this.vz += (dz / dist) * chaseSp * 2.2 * dt;
@@ -369,13 +438,24 @@ export class Hazard {
       this.group.position.y = this.baseY + Math.sin(this.t * 4) * 0.04;
     }
 
-    // Subtle red tint when chasing
+    // Subtle red tint when chasing — preserve authored glows (lure, eyes, stripe)
     this.group.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.MeshToonMaterial | undefined;
-      if (m && m.isMeshToonMaterial && m.emissive) {
-        m.emissive.setHex(chasing ? 0x331111 : 0x000000);
-        m.emissiveIntensity = chasing ? 0.35 : 0;
+      if (!m || !m.isMeshToonMaterial || !m.emissive) return;
+      if (m.userData.baseEmissive === undefined) {
+        m.userData.baseEmissive = m.emissive.getHex();
+        m.userData.baseEmissiveIntensity = m.emissiveIntensity ?? 0;
       }
+      const baseE = m.userData.baseEmissive as number;
+      const baseI = m.userData.baseEmissiveIntensity as number;
+      if (baseI > 0.12) {
+        // Authored glow — keep color, pulse harder while hunting
+        m.emissive.setHex(baseE);
+        m.emissiveIntensity = baseI * (chasing ? 1.45 : 1);
+        return;
+      }
+      m.emissive.setHex(chasing ? 0x441818 : 0x000000);
+      m.emissiveIntensity = chasing ? 0.4 : 0;
     });
 
     this.faceVelocity(dt);

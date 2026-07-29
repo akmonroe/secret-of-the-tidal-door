@@ -91,7 +91,17 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
   let cluePos: THREE.Vector3 | null = null;
 
   const indoor = biome.id === "house";
-  const undersea = biome.id === "reef" || biome.id === "wreck";
+  const undersea =
+    biome.id === "reef" ||
+    biome.id === "wreck" ||
+    biome.id === "kelp" ||
+    biome.id === "ice" ||
+    biome.id === "vent" ||
+    biome.id === "current" ||
+    biome.id === "coral_city" ||
+    biome.id === "storm" ||
+    biome.id === "mirror" ||
+    biome.id === "lagoon";
 
   const worldW = colCount * CELL + 24;
   const worldD = rowCount * CELL + 24;
@@ -103,7 +113,12 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
     groundStyle = "wood";
     wallStyle = "stucco";
     floorStyle = "wood";
-  } else if (biome.id === "reef") {
+  } else if (biome.id === "kelp") {
+    // Emerald kelp trunks — coral texture tinted green for wall read
+    groundStyle = "seafloor";
+    wallStyle = "coral";
+    floorStyle = "seafloor";
+  } else if (biome.id === "reef" || biome.id === "coral_city" || biome.id === "lagoon") {
     groundStyle = "seafloor";
     wallStyle = "coral";
     floorStyle = "seafloor";
@@ -112,6 +127,31 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
     groundStyle = "hull";
     wallStyle = "brick";
     floorStyle = "grate";
+  } else if (biome.id === "vent") {
+    // Volcanic vents — dark hull plates, rock pillars (not brick bulkheads)
+    groundStyle = "hull";
+    wallStyle = "rock";
+    floorStyle = "hull";
+  } else if (biome.id === "ice") {
+    // Bright ice shelves — smooth rock walls tinted white via palette
+    groundStyle = "sand";
+    wallStyle = "rock";
+    floorStyle = "sand";
+  } else if (biome.id === "mirror") {
+    // Looking-glass — cool metal sheen underfoot
+    groundStyle = "grate";
+    wallStyle = "stucco";
+    floorStyle = "grate";
+  } else if (biome.id === "current") {
+    // Raceway lanes — seafloor + rock cliffs
+    groundStyle = "seafloor";
+    wallStyle = "rock";
+    floorStyle = "seafloor";
+  } else if (biome.id === "storm") {
+    // Storm-tossed sand bars + rock
+    groundStyle = "sand";
+    wallStyle = "rock";
+    floorStyle = "sand";
   }
 
   const ground = makeGround(Math.max(worldW, worldD), biome.ground, groundStyle);
