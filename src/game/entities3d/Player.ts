@@ -148,6 +148,21 @@ export class Player {
     );
   }
 
+  /**
+   * True when inside the map but within `dist` of the fall line
+   * (matches the red warning band / yellow curb kids should notice).
+   */
+  isNearWorldEdge(maze: MazeBuild, dist = 2.2): boolean {
+    if (this.isOutsideWorld(maze)) return false;
+    const minX = maze.originX;
+    const maxX = maze.originX + maze.cols * maze.cellSize;
+    const minZ = maze.originZ;
+    const maxZ = maze.originZ + maze.rows * maze.cellSize;
+    const dx = Math.min(this.position.x - minX, maxX - this.position.x);
+    const dz = Math.min(this.position.z - minZ, maxZ - this.position.z);
+    return dx < dist || dz < dist;
+  }
+
   /** Begin the fall-off-the-world death animation. */
   startFall(): void {
     if (this.falling) return;

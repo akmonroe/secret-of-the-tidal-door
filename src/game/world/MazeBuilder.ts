@@ -103,8 +103,9 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
     biome.id === "mirror" ||
     biome.id === "lagoon";
 
-  const worldW = colCount * CELL + 24;
-  const worldD = rowCount * CELL + 24;
+  // Footprint matches the playable grid so solid ground doesn't invite walking into the void
+  const worldW = colCount * CELL + 2;
+  const worldD = rowCount * CELL + 2;
 
   let groundStyle: GroundStyle = "sand";
   let wallStyle: WallStyle = "rock";
@@ -159,7 +160,8 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
   group.add(ground);
 
   if (!indoor) {
-    const water = makeWater(Math.max(worldW, worldD) * 1.15, biome.water);
+    // Water only under the map — not a huge plate that looks safe past the edge
+    const water = makeWater(Math.max(worldW, worldD) * 1.02, biome.water);
     water.position.y = undersea ? 0.08 : 0.02;
     if (undersea) {
       (water.material as THREE.MeshToonMaterial).opacity = 0.4;
@@ -264,6 +266,9 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
     }
   }
 
+  // Bold fall-edge: kids must see where the world ends before they die
+  group.add(buildWorldEdgeGuard(originX, originZ, colCount, rowCount));
+
   return {
     group,
     blockers,
@@ -277,6 +282,211 @@ export function buildMazeFromRows(rows: string[], biome: BiomePalette): MazeBuil
     originZ,
     cellSize: CELL,
   };
+}
+
+/**
+ * Super-clear map boundary so falling off is never a surprise.
+ * - Dark void past the playable rect (no “fake ground”)
+ * - Yellow/black hazard lip exactly on the fall line
+ * - Inner warning strip (soft red glow) just inside the edge
+ * - Corner posts with red tops for high-camera landmarks
+ */
+function buildWorldEdgeGuard(
+  originX: number,
+  originZ: number,
+  cols: number,
+  rows: number,
+): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "world-edge-guard";
+
+  const minX = originX;
+  const maxX = originX + cols * CELL;
+  const minZ = originZ;
+  const maxZ = originZ + rows * CELL;
+  const midX = (minX + maxX) / 2;
+  const midZ = (minZ + maxZ) / 2;
+  const mapW = maxX - minX;
+  const mapD = maxZ - minZ;
+
+  // Huge dark void under & around the map — reads as “nothing” from high camera
+  const voidSize = Math.max(mapW, mapD) + 80;
+  const voidPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(voidSize, voidSize),
+    new THREE.MeshBasicMaterial({
+      color: 0x0a0c14,
+      depthWrite: true,
+    }),
+  );
+  voidPlane.rotation.x = -Math.PI / 2;
+  voidPlane.position.y = -0.35;
+  voidPlane.renderOrder = -2;
+  g.add(voidPlane);
+
+  // Soft abyss fog ring just outside (slightly lighter so edge contrast pops)
+  const abyss = new THREE.Mesh(
+    new THREE.RingGeometry(
+      Math.hypot(mapW, mapD) * 0.48,
+      Math.hypot(mapW, mapD) * 0.48 + 18,
+      48,
+    ),
+    new THREE.MeshBasicMaterial({
+      color: 0x1a1028,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  abyss.rotation.x = -Math.PI / 2;
+  abyss.position.set(midX, -0.2, midZ);
+  g.add(abyss);
+
+  const STRIPE_YEL = 0xffdd33;
+  const STRIPE_BLK = 0x1a1410;
+  const WARN_RED = 0xff3344;
+
+  /** One long edge: curb + striped top + outer cliff face */
+  const addEdge = (
+    cx: number,
+    cz: number,
+    length: number,
+    alongX: boolean,
+  ): void => {
+    // Raised hazard curb (sits on the fall line)
+    const curbW = alongX ? length + 0.6 : 0.85;
+    const curbD = alongX ? 0.85 : length + 0.6;
+    const curb = new THREE.Mesh(
+      new THREE.BoxGeometry(curbW, 0.55, curbD),
+      new THREE.MeshToonMaterial({ color: STRIPE_BLK }),
+    );
+    curb.position.set(cx, 0.22, cz);
+    curb.castShadow = true;
+    g.add(curb);
+
+    // Yellow/black chevron stripes on top of curb
+    const segs = Math.max(4, Math.floor(length / 1.4));
+    for (let i = 0; i < segs; i++) {
+      if (i % 2 !== 0) continue;
+      const t = (i + 0.5) / segs - 0.5;
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          alongX ? length / segs + 0.02 : 0.72,
+          0.12,
+          alongX ? 0.72 : length / segs + 0.02,
+        ),
+        new THREE.MeshToonMaterial({
+          color: STRIPE_YEL,
+          emissive: STRIPE_YEL,
+          emissiveIntensity: 0.35,
+        }),
+      );
+      stripe.position.set(
+        alongX ? cx + t * length : cx,
+        0.52,
+        alongX ? cz : cz + t * length,
+      );
+      g.add(stripe);
+    }
+
+    // Outer cliff face — bright red rim so “death side” is obvious
+    const face = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        alongX ? length + 0.8 : 0.35,
+        1.1,
+        alongX ? 0.35 : length + 0.8,
+      ),
+      new THREE.MeshToonMaterial({
+        color: WARN_RED,
+        emissive: 0xaa0011,
+        emissiveIntensity: 0.45,
+      }),
+    );
+    // Push slightly outward from playable area
+    let fx = cx;
+    let fz = cz;
+    if (alongX) {
+      // north or south edge: cz is already outside-ish
+      fz = cz + (cz < midZ ? -0.35 : 0.35);
+    } else {
+      fx = cx + (cx < midX ? -0.35 : 0.35);
+    }
+    face.position.set(fx, -0.15, fz);
+    g.add(face);
+  };
+
+  // Four edges — curb sits ON the fall line so you step on yellow before you die
+  const lip = 0.05;
+  addEdge(midX, minZ - lip, mapW, true); // north (-Z)
+  addEdge(midX, maxZ + lip, mapW, true); // south (+Z)
+  addEdge(minX - lip, midZ, mapD, false); // west (-X)
+  addEdge(maxX + lip, midZ, mapD, false); // east (+X)
+
+  // Inner warning band (on the floor, last cells) — soft red glow strip
+  const warnMat = new THREE.MeshBasicMaterial({
+    color: 0xff2244,
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+  });
+  const band = 1.15;
+  const bands: Array<[number, number, number, number]> = [
+    [midX, minZ + band * 0.5, mapW - 1.2, band], // north inner
+    [midX, maxZ - band * 0.5, mapW - 1.2, band], // south
+    [minX + band * 0.5, midZ, band, mapD - 1.2], // west
+    [maxX - band * 0.5, midZ, band, mapD - 1.2], // east
+  ];
+  for (const [bx, bz, bw, bd] of bands) {
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(bw, bd), warnMat.clone());
+    strip.rotation.x = -Math.PI / 2;
+    strip.position.set(bx, 0.12, bz);
+    strip.renderOrder = 1;
+    g.add(strip);
+  }
+
+  // Corner danger posts — tall so the high Switch camera always sees them
+  const corners: Array<[number, number]> = [
+    [minX - lip, minZ - lip],
+    [maxX + lip, minZ - lip],
+    [minX - lip, maxZ + lip],
+    [maxX + lip, maxZ + lip],
+  ];
+  for (const [px, pz] of corners) {
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.28, 2.4, 8),
+      new THREE.MeshToonMaterial({ color: STRIPE_BLK }),
+    );
+    post.position.set(px, 1.15, pz);
+    post.castShadow = true;
+    g.add(post);
+    // Alternating yellow rings
+    for (let k = 0; k < 3; k++) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.3, 0.07, 6, 12),
+        new THREE.MeshToonMaterial({
+          color: STRIPE_YEL,
+          emissive: STRIPE_YEL,
+          emissiveIntensity: 0.5,
+        }),
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(px, 0.5 + k * 0.55, pz);
+      g.add(ring);
+    }
+    // Red warning ball on top
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.32, 10, 8),
+      new THREE.MeshToonMaterial({
+        color: WARN_RED,
+        emissive: 0xff0022,
+        emissiveIntensity: 0.7,
+      }),
+    );
+    cap.position.set(px, 2.5, pz);
+    g.add(cap);
+  }
+
+  return g;
 }
 
 function block(x: number, z: number, half: number) {

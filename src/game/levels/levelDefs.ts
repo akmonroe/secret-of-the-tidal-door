@@ -69,7 +69,7 @@ export const LEVELS: LevelDef[] = [
     clueText: "Begin where light first touches sand.",
     scuba: false,
     objective: "Head EAST to the stilt house · Clue SUN",
-    hint: "Travel EAST across the wide water maze. Falling off the edge ends your adventure!",
+    hint: "Travel EAST. Stay inside the yellow/black edge — past it you fall and restart the whole game!",
     hazards: [
       { kind: "shark", c: 28, r: 63, speed: 1.76, axis: "x" },
       { kind: "shark", c: 43, r: 61, speed: 1.81, axis: "z" },

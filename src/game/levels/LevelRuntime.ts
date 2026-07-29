@@ -51,6 +51,8 @@ export class LevelRuntime {
   private liveBlockers: Blocker[] = [];
   /** Water surface maps for cheap UV scroll (from makeWater userData). */
   private waterMaps: THREE.Texture[] = [];
+  /** Throttle “danger edge” hints so they don't spam */
+  private edgeWarnAt = 0;
 
   constructor(def: LevelDef, callbacks: LevelCallbacks) {
     this.def = def;
@@ -248,6 +250,14 @@ export class LevelRuntime {
     this.maze.blockers = this.liveBlockers;
     this.player.update(dt, input, this.maze);
     this.maze.blockers = staticBlockers;
+
+    // Near yellow/red boundary — warn before the fall
+    if (!this.player.falling && this.player.isNearWorldEdge(this.maze, 2.4)) {
+      if (this.clock >= this.edgeWarnAt) {
+        this.edgeWarnAt = this.clock + 2.8;
+        this.callbacks.onHint("⚠ DANGER — yellow edge! Stay inside or you will fall!");
+      }
+    }
 
     // Edge of the world → fall and full game over
     if (!this.player.falling && this.player.isOutsideWorld(this.maze)) {
