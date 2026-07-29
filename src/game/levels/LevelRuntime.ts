@@ -51,6 +51,13 @@ export class LevelRuntime {
   private liveBlockers: Blocker[] = [];
   /** Water surface maps for cheap UV scroll (from makeWater userData). */
   private waterMaps: THREE.Texture[] = [];
+  /** Waterfall edge sheets (UV scroll downward). */
+  private waterfallAnims: {
+    map: THREE.Texture;
+    speed: number;
+  }[] = [];
+  /** Mist planes + droplet streaks on the world rim */
+  private edgeFx: THREE.Object3D[] = [];
   /** Throttle “danger edge” hints so they don't spam */
   private edgeWarnAt = 0;
 
@@ -84,9 +91,20 @@ export class LevelRuntime {
     this.maze = buildMazeFromRows(this.def.map, biome);
     this.scene.add(this.maze.group);
     this.waterMaps = [];
+    this.waterfallAnims = [];
+    this.edgeFx = [];
     this.maze.group.traverse((obj) => {
       if (obj.userData?.animateWater && obj.userData.waterMap) {
         this.waterMaps.push(obj.userData.waterMap as THREE.Texture);
+      }
+      if (obj.userData?.animateWaterfall && obj.userData.waterfallMap) {
+        this.waterfallAnims.push({
+          map: obj.userData.waterfallMap as THREE.Texture,
+          speed: (obj.userData.waterfallSpeed as number) ?? 1,
+        });
+      }
+      if (obj.userData?.animateMist || obj.userData?.animateDrop) {
+        this.edgeFx.push(obj);
       }
     });
 
@@ -229,6 +247,34 @@ export class LevelRuntime {
       map.offset.x = (this.clock * 0.035) % 1;
       map.offset.y = (this.clock * 0.022) % 1;
     }
+    // Edge waterfalls pour into the abyss
+    for (const w of this.waterfallAnims) {
+      w.map.offset.y = (this.clock * w.speed * 0.55) % 1;
+      w.map.offset.x = (this.clock * w.speed * 0.08) % 1;
+    }
+    // Mist bob + droplet streaks recycle downward
+    for (const fx of this.edgeFx) {
+      const ud = fx.userData;
+      if (ud.animateMist) {
+        const phase = (ud.mistPhase as number) ?? 0;
+        fx.position.y = -1.2 + Math.sin(this.clock * 1.2 + phase) * 0.35;
+        const mat = (fx as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        if (mat?.opacity !== undefined) {
+          mat.opacity = 0.16 + Math.sin(this.clock * 0.9 + phase) * 0.08;
+        }
+      }
+      if (ud.animateDrop) {
+        const base = (ud.dropBaseY as number) ?? -2;
+        const speed = (ud.dropSpeed as number) ?? 3;
+        const phase = (ud.dropPhase as number) ?? 0;
+        const cycle = ((this.clock * speed + phase) % 6);
+        fx.position.y = base - cycle * 1.4;
+        const mat = (fx as THREE.Mesh).material as THREE.MeshToonMaterial;
+        if (mat?.opacity !== undefined) {
+          mat.opacity = 0.55 * (1 - cycle / 6);
+        }
+      }
+    }
 
     // Movers first so animals & player see current gates
     for (const m of this.movers) m.update(dt);
@@ -344,6 +390,8 @@ export class LevelRuntime {
 
   dispose(): void {
     this.waterMaps = [];
+    this.waterfallAnims = [];
+    this.edgeFx = [];
     this.scene.clear();
   }
 }
